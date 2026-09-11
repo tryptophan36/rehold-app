@@ -1,0 +1,160 @@
+:root {
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  color: #e8e4dc;
+  background: #12110f;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  color: #f4efe6;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.sub,
+.hint,
+.eyebrow {
+  margin: 0;
+  color: #9a958c;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sub {
+  margin-top: 8px;
+  max-width: 52ch;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat,
+.card {
+  background: #1c1b18;
+  border: 1px solid #2c2a26;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stat-value,
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 20px;
+  margin: 8px 0 0;
+  color: #f4efe6;
+}
+
+.mono {
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #9a958c;
+}
+
+input {
+  background: #12110f;
+  border: 1px solid #3a3732;
+  color: #f4efe6;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+button {
+  background: #f4efe6;
+  color: #12110f;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  color: #f4efe6;
+  border: 1px solid #3a3732;
+}
+
+.banner {
+  background: #3a2018;
+  color: #f3c7b5;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+@media (max-width: 800px) {
+  .grid,
+  .row,
+  .top {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}
