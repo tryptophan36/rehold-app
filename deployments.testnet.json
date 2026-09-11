@@ -1,0 +1,19 @@
+{
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "usdc": {
+    "hts": "0.0.429274",
+    "evm": "0x0000000000000000000000000000000000068CDA"
+  },
+  "bond": {
+    "hts": "0.0.10483609",
+    "evm": "0xc746a5530fb1e0dc818cabdce6ae88c1316d87bf",
+    "symbol": "HTN-2027-A"
+  },
+  "contracts": {
+    "BondPriceOracle": "0x39a337f7860989148825951FF0Ba1415ca98bA3D",
+    "RepoVault": "0xAAB75a9D93696c95D1d21321AEE1bAaA8A98B797",
+    "SecondaryMarket": "0x8f0a1a289BaD5F43f38A5396c1B439c183Dd013c",
+    "MarginEngine": "0xA8D6a02D2f64a94F580162865664800a0856dF6A"
+  }
+}

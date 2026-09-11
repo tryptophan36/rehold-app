@@ -1,0 +1,22 @@
+{
+  "name": "@rehold/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "TreasuryRepo contracts (RepoVault, MarginEngine, SecondaryMarket, oracles)",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "compile:force": "npx hardhat compile --force",
+    "clean": "npx hardhat clean"
+  },
+  "devDependencies": {
+    "@hashgraph/hedera-smart-contracts": "github:hashgraph/hedera-smart-contracts#v0.10.1",
+    "@nomicfoundation/hardhat-ethers": "^3.1.3",
+    "@openzeppelin/contracts": "5.4.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.26.3",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.2"
+  }
+}
