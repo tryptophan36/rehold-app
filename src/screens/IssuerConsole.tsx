@@ -8,10 +8,10 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
-import { bondAbi, CLEARING_ROLE, CONTROL_LIST_ROLE, marketAbi } from "../abi/contracts";
+import { bondAbi, CLEARING_ROLE, CONTROL_LIST_ROLE, marketAbi, oracleAbi, vaultAbi } from "../abi/contracts";
 import { Stat } from "../components/Stat";
 import { env } from "../config/env";
-import { bytes3ToAscii, fmt, formatDate, short } from "../lib/format";
+import { bytes3ToAscii, fmt, formatDate, formatDateTime, short } from "../lib/format";
 import {
   ATS_WEB_URL,
   connectBondForWallet,
@@ -26,6 +26,7 @@ import {
   useLinkedBonds,
   type VisibleBond,
 } from "../lib/issuer";
+import { oracleIsStale } from "../lib/margin";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 const HEDERA_GAS = 2_000_000n;
@@ -86,6 +87,9 @@ export function IssuerConsole() {
   const [listAmount, setListAmount] = useState("1");
   const [listPrice, setListPrice] = useState("100");
   const [allowInput, setAllowInput] = useState("");
+  const [transferTo, setTransferTo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("1");
+  const [navInput, setNavInput] = useState("");
   const [proceeds, setProceeds] = useState<bigint | undefined>(undefined);
 
   useEffect(() => {
@@ -202,11 +206,49 @@ export function IssuerConsole() {
     query: { enabled: Boolean(token && allowTarget), retry: false },
   });
 
+  const transferTarget = isAddress(transferTo) ? getAddress(transferTo) : undefined;
+  const { data: recipientListed, refetch: refetchRecipientListed } = useReadContract({
+    address: token,
+    abi: bondAbi,
+    functionName: "isInControlList",
+    args: transferTarget ? [transferTarget] : undefined,
+    query: { enabled: Boolean(token && transferTarget), retry: false },
+  });
+
   const { data: clearingOn, refetch: refetchClearing } = useReadContract({
     address: token,
     abi: bondAbi,
     functionName: "isClearingActivated",
     query: { enabled: Boolean(token), retry: false },
+  });
+
+  const { data: oracleAddress, refetch: refetchOracleAddr } = useReadContract({
+    address: env.vault,
+    abi: vaultAbi,
+    functionName: "bondOracles",
+    args: token ? [token] : undefined,
+    query: { enabled: Boolean(token), retry: false },
+  });
+
+  const priceOracle =
+    oracleAddress && oracleAddress !== ZERO
+      ? oracleAddress
+      : token && token.toLowerCase() === env.bond.toLowerCase()
+        ? env.oracle
+        : undefined;
+
+  const { data: priceData, refetch: refetchPrice } = useReadContract({
+    address: priceOracle,
+    abi: oracleAbi,
+    functionName: "latestPrice",
+    query: { enabled: Boolean(priceOracle), retry: false },
+  });
+
+  const { data: oracleUpdater, refetch: refetchUpdater } = useReadContract({
+    address: priceOracle,
+    abi: oracleAbi,
+    functionName: "updater",
+    query: { enabled: Boolean(priceOracle), retry: false },
   });
 
   const { data: canEditList } = useReadContract({
@@ -313,7 +355,11 @@ export function IssuerConsole() {
     void refetchVaultListed();
     void refetchWalletListed();
     void refetchTargetListed();
+    void refetchRecipientListed();
     void refetchClearing();
+    void refetchOracleAddr();
+    void refetchPrice();
+    void refetchUpdater();
   }, [
     isSuccess,
     refetchDetails,
@@ -324,7 +370,11 @@ export function IssuerConsole() {
     refetchVaultListed,
     refetchWalletListed,
     refetchTargetListed,
+    refetchRecipientListed,
     refetchClearing,
+    refetchOracleAddr,
+    refetchPrice,
+    refetchUpdater,
   ]);
 
   async function onConnectBond(event: FormEvent) {
@@ -345,6 +395,7 @@ export function IssuerConsole() {
   }
 
   const listAmountRaw = parseAmount(listAmount, decimals);
+  const transferAmountRaw = parseAmount(transferAmount, decimals);
   let pricePerUnit = 0n;
   try {
     pricePerUnit = toPricePerUnit(listPrice, decimals);
@@ -358,11 +409,37 @@ export function IssuerConsole() {
   const vaultAllowed = isAllowlisted(whitelistMode, vaultListed);
   const walletAllowed = isAllowlisted(whitelistMode, walletListed);
   const targetAllowed = isAllowlisted(whitelistMode, targetListed);
+  const recipientAllowed = isAllowlisted(whitelistMode, recipientListed);
+  const sendingToSelf = Boolean(
+    address && transferTarget && transferTarget.toLowerCase() === address.toLowerCase(),
+  );
   const canAllowTarget =
     Boolean(token && allowTarget && canEditList && whitelistMode === true && targetListed === false && !busy);
   const canApprove = canList && marketAllowed && walletAllowed;
   const canSubmitListing = canApprove && !needsApprove && clearingOn !== true;
+  const canTransfer =
+    isConnected &&
+    Boolean(token) &&
+    Boolean(transferTarget) &&
+    transferAmountRaw > 0n &&
+    (unsold ?? 0n) >= transferAmountRaw &&
+    recipientAllowed &&
+    walletAllowed &&
+    !sendingToSelf &&
+    !busy;
   const roles = selectedBond ? roleLabels(selectedBond.claim) : [];
+  const oraclePrice =
+    priceData?.[0] !== undefined && priceData[0] > 0n ? BigInt(priceData[0]) : undefined;
+  const priceUpdatedAt = priceData?.[1];
+  const navStale = oracleIsStale(priceUpdatedAt, Date.now());
+  const navRaw = parseAmount(navInput, 8);
+  const navToPush = navRaw > 0n ? navRaw : oraclePrice;
+  const canPushNav =
+    isConnected &&
+    Boolean(priceOracle) &&
+    Boolean(navToPush) &&
+    Boolean(address && oracleUpdater && address.toLowerCase() === oracleUpdater.toLowerCase()) &&
+    !busy;
 
   const currency = bytes3ToAscii(faceCurrency);
   const faceLabel =
@@ -516,6 +593,62 @@ export function IssuerConsole() {
           </section>
 
           <section className="card">
+            <h2>Bond NAV</h2>
+            <p className="hint">
+              RepoVault rejects collateral if this price is older than 10 minutes. Push the same
+              value to refresh the timestamp, or a new value for the price-drop demo (max 30% move).
+            </p>
+            {priceUpdatedAt === undefined ? (
+              <p className="hint">Reading NAV…</p>
+            ) : navStale ? (
+              <p className="banner">
+                NAV is stale (last push {formatDateTime(priceUpdatedAt)}). Posting collateral will
+                revert until you push again.
+              </p>
+            ) : (
+              <p className="hint">
+                On-chain {oraclePrice === undefined ? "—" : fmt(oraclePrice, 8)} · last push{" "}
+                {formatDateTime(priceUpdatedAt)}
+              </p>
+            )}
+            <div className="row two">
+              <label>
+                NAV
+                <input
+                  value={navInput}
+                  onChange={(event) => setNavInput(event.target.value)}
+                  placeholder={oraclePrice === undefined ? "1000" : fmt(oraclePrice, 8)}
+                />
+              </label>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                disabled={!canPushNav}
+                onClick={() =>
+                  priceOracle &&
+                  navToPush !== undefined &&
+                  writeContract({
+                    address: priceOracle,
+                    abi: oracleAbi,
+                    functionName: "pushPrice",
+                    args: [navToPush],
+                    gas: HEDERA_GAS,
+                  })
+                }
+              >
+                Push NAV
+              </button>
+            </div>
+            {address && oracleUpdater && address.toLowerCase() !== oracleUpdater.toLowerCase() ? (
+              <p className="hint">
+                This wallet is not the oracle updater ({short(oracleUpdater)}). Switch to that
+                wallet to push.
+              </p>
+            ) : null}
+          </section>
+
+          <section className="card">
             <h2>Allow list</h2>
             <p className="hint">
               In allowlist mode, buyers, sellers, SecondaryMarket, and RepoVault must be added with{" "}
@@ -643,6 +776,74 @@ export function IssuerConsole() {
                 </a>
                 .
               </p>
+            ) : null}
+          </section>
+
+          <section className="card">
+            <h2>Transfer bond</h2>
+            <p className="hint">
+              Send unsold inventory from this wallet to another address. The recipient must be on
+              the allow list and associated with this HTS token.
+            </p>
+            <div className="row two">
+              <label>
+                Recipient
+                <input
+                  value={transferTo}
+                  onChange={(event) => setTransferTo(event.target.value)}
+                  placeholder="0x…"
+                />
+              </label>
+              <label>
+                Amount ({symbol ?? "tokens"})
+                <input
+                  value={transferAmount}
+                  onChange={(event) => setTransferAmount(event.target.value)}
+                />
+              </label>
+            </div>
+            {transferTarget ? (
+              <p className="hint">
+                {short(transferTarget)}{" "}
+                {sendingToSelf
+                  ? "is this wallet."
+                  : recipientAllowed
+                    ? "is eligible to receive this bond."
+                    : "is not on the allow list."}{" "}
+                Available {fmt(unsold, decimals)} {symbol ?? "tokens"}.
+              </p>
+            ) : (
+              <p className="hint">
+                Available {fmt(unsold, decimals)} {symbol ?? "tokens"}.
+              </p>
+            )}
+            <div className="actions">
+              <button
+                type="button"
+                disabled={!canTransfer}
+                onClick={() =>
+                  token &&
+                  transferTarget &&
+                  writeContract({
+                    address: token,
+                    abi: bondAbi,
+                    functionName: "transfer",
+                    args: [transferTarget, transferAmountRaw],
+                    gas: HEDERA_GAS,
+                  })
+                }
+              >
+                Transfer
+              </button>
+            </div>
+            {!walletAllowed ? (
+              <p className="hint">Allow this wallet on the bond before transferring inventory.</p>
+            ) : sendingToSelf ? (
+              <p className="hint">Pick a different recipient than the connected wallet.</p>
+            ) : transferTarget && !recipientAllowed ? (
+              <p className="hint">Allow the recipient on this bond before transferring.</p>
+            ) : transferAmountRaw > (unsold ?? 0n) ? (
+              <p className="hint">Amount is above this wallet’s unsold balance.</p>
             ) : null}
           </section>
 
