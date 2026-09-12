@@ -123,6 +123,30 @@ export function explainWriteError(message: string) {
   if (message.includes("TOKEN_NOT_ASSOCIATED_TO_ACCOUNT")) {
     return "This wallet is not associated with that HTS token. Associate USDC first, then approve.";
   }
+  if (message.includes("InsufficientIdleLiquidity")) {
+    return "That amount is above your idle share. Withdraw only the cash that is not currently lent out.";
+  }
+  if (message.includes("ZeroAmount")) {
+    return "Amount must be greater than zero.";
+  }
+  if (message.includes("CashTransferFailed")) {
+    return "USDC transfer failed. Associate the token to this wallet, then try again.";
+  }
+  if (message.includes("0x19abf40e") || message.includes("StalePrice")) {
+    return "Bond NAV is older than 10 minutes. Push a fresh price from Admin, then post collateral again.";
+  }
+  if (message.includes("0x6bb27929") || message.includes("InsufficientPoolLiquidity")) {
+    return "The USDC pool does not have enough idle cash to fund this repo. Ask a lender to deposit more, or pledge less.";
+  }
+  if (message.includes("0xc5cac7f8") || message.includes("NoOracleForBond")) {
+    return "No NAV oracle is registered for this bond on the vault.";
+  }
+  if (message.includes("0xe39f4776") || message.includes("WrongExpirationTimestamp")) {
+    return "ATS rejected the collateral hold: expirationTimestamp 0 is invalid. The vault must create never-expire holds with max uint256.";
+  }
+  if (message.includes("0xf180d8f9") || message.includes("InsufficientAllowance")) {
+    return "ATS needs an ERC-20 approve of this bond to the vault before it can create the collateral hold. Approve Vault on the Desk, then post again.";
+  }
   if (message.includes("0x128")) {
     return "Hedera rejected the transaction. For this bond that is almost always ATS AccountIsBlocked: this wallet, the counterparty, or the SecondaryMarket is not on the allow list, and Hashio wraps the revert as RPC 0x128.";
   }
