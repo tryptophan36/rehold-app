@@ -15,8 +15,10 @@ import { IRepoVault } from "./interfaces/IRepoVault.sol";
  *
  *      Collateral is valued with the same 8-decimal oracle convention as
  *      RepoVault: `collateralValue = uint256(price) * collateralAmount / 1e8`.
- *      The engine does not read per-position haircut or threshold fields;
- *      the 102 % / 110 % constants below are the system-wide risk policy.
+ *      The engine looks up `vault.bondOracles[position.bondToken]` so each
+ *      onboarded bond is priced independently. The engine does not read
+ *      per-position haircut or threshold fields; the 102 % / 110 % constants
+ *      below are the system-wide risk policy.
  */
 contract MarginEngine {
     // ---------------------------------------------------------------------
@@ -35,7 +37,7 @@ contract MarginEngine {
     /// @dev Oracle decimal scale. Matches BondPriceOracle / Chainlink convention.
     uint256 private constant _PRICE_SCALE = 1e8;
 
-    /// @dev Maximum age of `bondOracle.latestPrice()` accepted by `evaluate`.
+    /// @dev Maximum age of a per-bond `latestPrice()` accepted by `evaluate`.
     uint256 private constant _STALE_PRICE_WINDOW = 10 minutes;
 
     // ---------------------------------------------------------------------
@@ -44,9 +46,6 @@ contract MarginEngine {
 
     /// @notice Vault whose positions this engine evaluates and liquidates.
     IRepoVault public vault;
-
-    /// @notice Bond NAV feed used to value pledged collateral.
-    IPriceOracle public bondOracle;
 
     // ---------------------------------------------------------------------
     // Events
@@ -70,18 +69,20 @@ contract MarginEngine {
     /// @notice Thrown when `evaluate` is called on a closed or unknown position.
     error PositionInactive();
 
+    /// @notice Thrown when the position's bond has no oracle registered on the vault.
+    error NoOracleForBond();
+
     // ---------------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------------
 
     /**
-     * @notice Wires the engine to a vault and a bond NAV oracle.
+     * @notice Wires the engine to a vault. Per-bond oracles are read from
+     *         `vault.bondOracles` at evaluation time.
      * @param _vault Address of the deployed RepoVault.
-     * @param _bondOracle Address of the deployed BondPriceOracle.
      */
-    constructor(address _vault, address _bondOracle) {
+    constructor(address _vault) {
         vault = IRepoVault(_vault);
-        bondOracle = IPriceOracle(_bondOracle);
     }
 
     // ---------------------------------------------------------------------
@@ -90,12 +91,13 @@ contract MarginEngine {
 
     /**
      * @notice Revalues one position and issues a margin call or liquidation.
-     * @dev Permissionless. Reads `vault.getPositionSummary` and
-     *      `bondOracle.latestPrice`, then either:
+     * @dev Permissionless. Reads `vault.getPositionSummary` and the
+     *      per-bond `IPriceOracle.latestPrice`, then either:
      *      - calls `vault.liquidatePartial` when `ratioBps` is below 102 %,
      *      - calls `vault.issueMarginCall` when it is in [102 %, 110 %),
      *      - or emits `PositionHealthy` when it is at or above 110 %.
-     *      Reverts `PositionInactive` when the position is closed, and
+     *      Reverts `PositionInactive` when the position is closed,
+     *      `NoOracleForBond` when that bond is not onboarded, and
      *      `StalePrice` when the oracle update is older than 10 minutes.
      *      A zero principal is treated as healthy (nothing left to secure).
      *      A computed `sellAmount` of zero is not forwarded to the vault,
@@ -103,10 +105,15 @@ contract MarginEngine {
      * @param positionId ID of the repo position to evaluate.
      */
     function evaluate(uint256 positionId) external {
-        (, uint256 collateralAmount, uint256 principal, bool active) = vault.getPositionSummary(positionId);
+        (, address bondToken, uint256 collateralAmount, uint256 principal, bool active) = vault.getPositionSummary(
+            positionId
+        );
         if (!active) revert PositionInactive();
 
-        (int256 price, uint256 updatedAt) = bondOracle.latestPrice();
+        address oracle = vault.bondOracles(bondToken);
+        if (oracle == address(0)) revert NoOracleForBond();
+
+        (int256 price, uint256 updatedAt) = IPriceOracle(oracle).latestPrice();
         if (block.timestamp - updatedAt > _STALE_PRICE_WINDOW) revert StalePrice();
 
         if (principal == 0) {

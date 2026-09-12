@@ -23,10 +23,10 @@ import { IHoldTypes } from "./interfaces/IHoldTypes.sol";
 /**
  * @title RepoVault
  * @author Asset Tokenization Studio Team
- * @notice Central orchestrator and escrow for a collateralised repo-lending
- *         system built on top of an ATS tokenised treasury bond, and the
- *         pooled liquidity source ("lender pool") that funds the cash leg of
- *         every repo.
+ * @notice Shared repo clearing house: one vault can custody and lend against
+ *         ATS bonds from many issuers. Each onboarded bond is priced by its
+ *         own IPriceOracle, registered via `setOracleForBond`. The pooled
+ *         liquidity source ("lender pool") funds the cash leg of every repo.
  * @dev This is a demo/testnet contract. Lender pool accounting uses simple
  *      proportional bookkeeping (deposits and withdrawals tracked as plain
  *      uint256 balances) rather than ERC-4626-style share tokens. That is
@@ -84,8 +84,10 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     /// @notice ID that will be assigned to the next opened position.
     uint256 public nextPositionId;
 
-    /// @notice Bond NAV oracle (BondPriceOracle or any IPriceOracle-compatible feed).
-    IPriceOracle public bondOracle;
+    /// @notice Per-bond NAV oracle (BondPriceOracle or any IPriceOracle-compatible feed).
+    /// @dev One shared vault can serve many issuers; each bondToken has its own
+    ///      independent market price and therefore its own oracle instance.
+    mapping(address => address) public bondOracles;
 
     /// @notice Address of the MarginEngine contract authorised to trigger liquidations.
     address public marginEngine;
@@ -192,12 +194,21 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
      */
     event MarginCallIssued(uint256 indexed positionId, uint256 ratioBps);
 
+    /**
+     * @notice Emitted when an admin registers or rotates the NAV oracle for a bond.
+     * @param bondToken ATS diamond proxy whose prices this oracle reports.
+     * @param oracle IPriceOracle instance for that bond.
+     */
+    event OracleSetForBond(address indexed bondToken, address indexed oracle);
+
     // ---------------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------------
 
     /// @notice Thrown when the bond oracle price is older than 10 minutes.
     error StalePrice();
+    /// @notice Thrown when `originateRepo` is called for a bond with no registered oracle.
+    error NoOracleForBond();
     /// @notice Thrown when the lender pool does not hold enough idle cash to fund a repo.
     error InsufficientPoolLiquidity();
     /// @notice Thrown when a lender tries to withdraw more than their idle share.
@@ -212,6 +223,8 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     error NotVerified();
     /// @notice Thrown when a zero amount is supplied to a function that requires a positive value.
     error ZeroAmount();
+    /// @notice Thrown when a required address argument is the zero address.
+    error ZeroAddress();
     /// @notice Thrown when a cash (USDC) transfer fails.
     error CashTransferFailed();
     /// @notice Thrown when HTS association of the USDC token fails in the constructor.
@@ -236,18 +249,16 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     // ---------------------------------------------------------------------
 
     /**
-     * @notice Deploys the vault, associates it with the HTS cash token, and wires
-     *         the bond oracle.
+     * @notice Deploys the vault and associates it with the HTS cash token.
+     * @dev Oracles are not wired here. After deploy, call `setOracleForBond`
+     *      once per onboarded ATS bond so originateRepo can price that instrument.
      * @param _cashToken The Solidity address of Hedera testnet's native USDC
      *        (HTS token 0.0.429274, resolved to its EVM address). NOT a plain
      *        mock ERC-20 — the HTS association below is required before the vault
      *        can hold or transfer USDC.
-     * @param _bondOracle Address of the deployed BondPriceOracle for the bond
-     *        this vault accepts as collateral.
      */
-    constructor(address _cashToken, address _bondOracle) Ownable(msg.sender) {
+    constructor(address _cashToken) Ownable(msg.sender) {
         cashToken = IERC20(_cashToken);
-        bondOracle = IPriceOracle(_bondOracle);
 
         // HTS tokens require explicit association before this contract can hold
         // or move them — there is no default-allow behaviour like a plain ERC-20.
@@ -284,6 +295,20 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
      */
     function setIdentityRegistry(address registry) external onlyOwner {
         identityRegistry = IIdentityRegistry(registry);
+    }
+
+    /**
+     * @notice Registers (or rotates) the NAV oracle used to price `bondToken`.
+     * @dev Each ATS bond is an independent instrument and must have its own
+     *      BondPriceOracle instance. Without a mapping entry, `originateRepo`
+     *      for that bond reverts `NoOracleForBond`.
+     * @param bondToken ATS diamond proxy address of the bond.
+     * @param oracleAddress IPriceOracle (typically a BondPriceOracle) for this bond.
+     */
+    function setOracleForBond(address bondToken, address oracleAddress) external onlyOwner {
+        if (bondToken == address(0) || oracleAddress == address(0)) revert ZeroAddress();
+        bondOracles[bondToken] = oracleAddress;
+        emit OracleSetForBond(bondToken, oracleAddress);
     }
 
     /**
@@ -364,9 +389,9 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     /**
      * @notice Originates a new repo: pledges `collateralAmount` of `bondToken`
      *         via a Hold and lends the borrower cash against it.
-     * @dev Collateral is priced via `bondOracle` at 8 decimals (Chainlink
-     *      convention). The oracle price and bond token unit convention must
-     *      share the same scale — adjust the 1e8 divisor if needed.
+     * @dev Collateral is priced via `bondOracles[bondToken]` at 8 decimals
+     *      (Chainlink convention). The oracle price and bond token unit
+     *      convention must share the same scale — adjust the 1e8 divisor if needed.
      *
      *      The hold is created with `expirationTimestamp == 0` (never-expires).
      *      Term enforcement is handled by `termEnd` + `settleAtMaturity`, not
@@ -396,7 +421,7 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     ) external nonReentrant returns (uint256 positionId) {
         if (collateralAmount == 0) revert ZeroAmount();
 
-        (int256 oraclePrice, uint256 updatedAt) = bondOracle.latestPrice();
+        (int256 oraclePrice, uint256 updatedAt) = _latestPriceForBond(bondToken);
         if (block.timestamp - updatedAt > 10 minutes) revert StalePrice();
 
         uint256 collateralValue = (uint256(oraclePrice) * collateralAmount) / 1e8;
@@ -551,15 +576,20 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
      * @notice Read helper for MarginEngine's health evaluation.
      * @param positionId ID of the position to query.
      * @return borrower Address of the position's borrower.
+     * @return bondToken ATS diamond proxy pledged as collateral.
      * @return collateralAmount Bond units currently pledged and under hold.
      * @return principal Outstanding cash owed by the borrower.
      * @return active False when the position has been closed.
      */
     function getPositionSummary(
         uint256 positionId
-    ) external view returns (address borrower, uint256 collateralAmount, uint256 principal, bool active) {
+    )
+        external
+        view
+        returns (address borrower, address bondToken, uint256 collateralAmount, uint256 principal, bool active)
+    {
         RepoPosition storage pos = positions[positionId];
-        return (pos.borrower, pos.collateralAmount, pos.principal, pos.active);
+        return (pos.borrower, pos.bondToken, pos.collateralAmount, pos.principal, pos.active);
     }
 
     /**
@@ -573,6 +603,16 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
     // ---------------------------------------------------------------------
     // Internal accounting helpers
     // ---------------------------------------------------------------------
+
+    /**
+     * @notice Looks up the registered oracle for `bondToken` and returns its latest price.
+     * @dev Reverts `NoOracleForBond` when the bond has not been onboarded.
+     */
+    function _latestPriceForBond(address bondToken) internal view returns (int256 oraclePrice, uint256 updatedAt) {
+        address oracle = bondOracles[bondToken];
+        if (oracle == address(0)) revert NoOracleForBond();
+        return IPriceOracle(oracle).latestPrice();
+    }
 
     /**
      * @notice Applies liquidation or redemption `proceeds` against a position's

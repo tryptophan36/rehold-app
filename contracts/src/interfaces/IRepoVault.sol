@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
  * @dev MarginEngine must import this interface only, not the vault
  *      implementation, so the risk rules stay auditable in isolation from
  *      custody, hold, and lender-pool accounting. The live `RepoVault`
- *      contract already exposes these three selectors.
+ *      contract already exposes these selectors.
  */
 interface IRepoVault {
     /**
@@ -33,15 +33,26 @@ interface IRepoVault {
 
     /**
      * @notice Returns the fields MarginEngine needs to value a position.
-     * @dev `borrower` is unused by the engine; it is part of the vault's
-     *      existing return tuple and is kept so the ABI stays identical.
+     * @dev `borrower` is unused by the engine; it is kept because callers
+     *      already decode this tuple. `bondToken` selects the per-bond oracle.
      * @param positionId ID of the repo position to query.
      * @return borrower Address that opened the position.
+     * @return bondToken ATS diamond proxy pledged as collateral.
      * @return collateralAmount Bond units currently pledged and under hold.
      * @return principal Outstanding cash owed by the borrower.
      * @return active False once the position has been repaid or settled.
      */
     function getPositionSummary(
         uint256 positionId
-    ) external view returns (address borrower, uint256 collateralAmount, uint256 principal, bool active);
+    )
+        external
+        view
+        returns (address borrower, address bondToken, uint256 collateralAmount, uint256 principal, bool active);
+
+    /**
+     * @notice NAV oracle registered for `bondToken`, or address(0) if none.
+     * @param bondToken ATS diamond proxy whose price feed is requested.
+     * @return oracle IPriceOracle address for that bond.
+     */
+    function bondOracles(address bondToken) external view returns (address oracle);
 }
