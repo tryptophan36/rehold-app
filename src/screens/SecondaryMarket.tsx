@@ -17,6 +17,7 @@ import {
   connectBondForInvestor,
   explainWriteError,
   fromPricePerUnit,
+  isAllowlisted,
   readBondClaim,
   toPricePerUnit,
   useLinkedBonds,
@@ -184,6 +185,29 @@ export function SecondaryMarket() {
     query: { enabled: Boolean(address) },
   });
 
+  const { data: whitelistMode, refetch: refetchListType } = useReadContract({
+    address: token,
+    abi: bondAbi,
+    functionName: "getControlListType",
+    query: { enabled: Boolean(token), retry: false },
+  });
+
+  const { data: marketListed, refetch: refetchMarketListed } = useReadContract({
+    address: token,
+    abi: bondAbi,
+    functionName: "isInControlList",
+    args: [env.market],
+    query: { enabled: Boolean(token), retry: false },
+  });
+
+  const { data: walletListed, refetch: refetchWalletListed } = useReadContract({
+    address: token,
+    abi: bondAbi,
+    functionName: "isInControlList",
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(token && address), retry: false },
+  });
+
   const { data: nextOrderId, refetch: refetchNextOrder } = useReadContract({
     address: env.market,
     abi: marketAbi,
@@ -276,7 +300,10 @@ export function SecondaryMarket() {
     void refetchUsdc();
     void refetchUsdcAllow();
     void refetchUsdcAssoc();
-  }, [isSuccess, refetchDetails, refetchNextOrder, refetchOrders, refetchUsdc, refetchUsdcAllow, refetchUsdcAssoc]);
+    void refetchListType();
+    void refetchMarketListed();
+    void refetchWalletListed();
+  }, [isSuccess, refetchDetails, refetchNextOrder, refetchOrders, refetchUsdc, refetchUsdcAllow, refetchUsdcAssoc, refetchListType, refetchMarketListed, refetchWalletListed]);
 
   async function onConnectBond(event: FormEvent) {
     event.preventDefault();
@@ -304,7 +331,11 @@ export function SecondaryMarket() {
   }
   const listTotalUsdc = listAmountRaw * pricePerUnit;
   const needsBondApprove = bondAllowance < listAmountRaw;
-  const canList = isConnected && Boolean(token) && listAmountRaw > 0n && pricePerUnit > 0n && !busy;
+  const marketAllowed = isAllowlisted(whitelistMode, marketListed);
+  const walletAllowed = isAllowlisted(whitelistMode, walletListed);
+  const listedForTrade = marketAllowed && walletAllowed;
+  const canList =
+    isConnected && Boolean(token) && listAmountRaw > 0n && pricePerUnit > 0n && !busy && listedForTrade;
   const canSubmitListing =
     canList && !needsBondApprove && (available === undefined || listAmountRaw <= available);
 
@@ -334,8 +365,8 @@ export function SecondaryMarket() {
       <section className="card">
         <h2>Secondary Market</h2>
         <p className="hint">
-          Peer-to-peer book for KYC-verified holders. RepoVault liquidation sales land in this
-          same feed.
+          Peer-to-peer book for allowlisted, KYC-verified holders. RepoVault liquidation sales land
+          in this same feed.
         </p>
         <label>
           Bond
@@ -373,6 +404,16 @@ export function SecondaryMarket() {
           <p className="hint">Connect a wallet to list, buy, or cancel. The book stays readable.</p>
         ) : filtering ? (
           <p className="hint">Checking linked holdings…</p>
+        ) : isConnected && whitelistMode === true && !walletAllowed ? (
+          <p className="banner">
+            This wallet is not on this bond’s allow list. Ask a control-list admin to add it before
+            Buy or New Listing will succeed.
+          </p>
+        ) : isConnected && whitelistMode === true && !marketAllowed ? (
+          <p className="banner">
+            SecondaryMarket {short(env.market)} is not on this bond’s allow list, so trades will
+            revert until an admin allows the market.
+          </p>
         ) : null}
       </section>
 
@@ -423,7 +464,12 @@ export function SecondaryMarket() {
               {book.map((order) => {
                 const mine = Boolean(address) && order.seller.toLowerCase() === address?.toLowerCase();
                 const canFill =
-                  isConnected && !busy && !mine && order.amount > 0n && !needsCashApprove;
+                  isConnected &&
+                  !busy &&
+                  !mine &&
+                  order.amount > 0n &&
+                  !needsCashApprove &&
+                  listedForTrade;
                 return (
                   <tr key={order.id.toString()}>
                     <td>#{order.id.toString()}</td>
@@ -508,7 +554,12 @@ export function SecondaryMarket() {
             </button>
           </div>
         ) : null}
-        {needsUsdcAssociate && openToBuy.length > 0 ? (
+        {isConnected && !listedForTrade ? (
+          <p className="hint">
+            Buy stays disabled until this wallet and the SecondaryMarket are allowlisted by a bond
+            admin.
+          </p>
+        ) : needsUsdcAssociate && openToBuy.length > 0 ? (
           <p className="hint">
             Hedera USDC is an HTS token. Associate it to this wallet once, then Approve. This
             wallet currently holds {fmt(usdcBal, CASH_DECIMALS)} USDC.
@@ -575,7 +626,11 @@ export function SecondaryMarket() {
             New Listing
           </button>
         </div>
-        {isConnected && needsBondApprove ? (
+        {isConnected && !listedForTrade ? (
+          <p className="hint">
+            Ask a bond admin to allowlist this wallet (and the market, if needed) before listing.
+          </p>
+        ) : isConnected && needsBondApprove ? (
           <p className="hint">Approve the shared SecondaryMarket, then list.</p>
         ) : available !== undefined && listAmountRaw > available ? (
           <p className="hint">Amount is above the unpledged balance.</p>
