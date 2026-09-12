@@ -19,9 +19,9 @@ Do **not** copy the ATS monorepo here. Hold interfaces under `contracts/src/inte
 | Contract | Address | HashScan |
 |---|---|---|
 | BondPriceOracle | `0x39a337f7860989148825951FF0Ba1415ca98bA3D` | [view](https://hashscan.io/testnet/contract/0x39a337f7860989148825951FF0Ba1415ca98bA3D) |
-| RepoVault | `0xAAB75a9D93696c95D1d21321AEE1bAaA8A98B797` | [view](https://hashscan.io/testnet/contract/0xAAB75a9D93696c95D1d21321AEE1bAaA8A98B797) |
-| SecondaryMarket | `0x8f0a1a289BaD5F43f38A5396c1B439c183Dd013c` | [view](https://hashscan.io/testnet/contract/0x8f0a1a289BaD5F43f38A5396c1B439c183Dd013c) |
-| MarginEngine | `0xA8D6a02D2f64a94F580162865664800a0856dF6A` | [view](https://hashscan.io/testnet/contract/0xA8D6a02D2f64a94F580162865664800a0856dF6A) |
+| RepoVault | `0xEcB7010568EeDACff4602Cc9840A765355bd2c66` | [view](https://hashscan.io/testnet/contract/0xEcB7010568EeDACff4602Cc9840A765355bd2c66) |
+| SecondaryMarket | `0x8e2Ee24A6b02E67a881060BBAae5bEBC4d61e7e4` | [view](https://hashscan.io/testnet/contract/0x8e2Ee24A6b02E67a881060BBAae5bEBC4d61e7e4) |
+| MarginEngine | `0xf1e2C19376730CCc82A5491edc950AC6a412499e` | [view](https://hashscan.io/testnet/contract/0xf1e2C19376730CCc82A5491edc950AC6a412499e) |
 | Bond (ATS) | `0xc746a5530fb1e0dc818cabdce6ae88c1316d87bf` | [token 0.0.10483609](https://hashscan.io/testnet/token/0.0.10483609) |
 | USDC | `0x0000000000000000000000000000000000068CDA` | [0.0.429274](https://hashscan.io/testnet/token/0.0.429274) |
 
@@ -35,14 +35,16 @@ For each of the four contracts above:
 2. Match compiler `0.8.28`, optimizer `100`, EVM `cancun`.
 3. Constructor arguments (ABI-encoded):
    - **BondPriceOracle:** updater `0x67c03919338c6177Bb6F83752a65a1cdAA2b96A8`
-   - **RepoVault:** USDC `0x0000000000000000000000000000000000068CDA`, oracle `0x39a337f7860989148825951FF0Ba1415ca98bA3D`
+   - **RepoVault:** USDC `0x0000000000000000000000000000000000068CDA` (oracles are registered after deploy via `setOracleForBond`)
    - **SecondaryMarket:** USDC `0x0000000000000000000000000000000000068CDA`
-   - **MarginEngine:** vault `0xAAB75a9D93696c95D1d21321AEE1bAaA8A98B797`, oracle `0x39a337f7860989148825951FF0Ba1415ca98bA3D`
+   - **MarginEngine:** vault `0xEcB7010568EeDACff4602Cc9840A765355bd2c66`
 4. Source is `contracts/src/*.sol`. Flatten if the UI asks for a single file:
 
 ```bash
 cd contracts && npx hardhat flatten src/RepoVault.sol
 ```
+
+HTN-2027-A is onboarded with `RepoVault.setOracleForBond(0xc746a5530fb1e0dc818cabdce6ae88c1316d87bf, 0x39a337f7860989148825951FF0Ba1415ca98bA3D)`. Each additional bond needs its own `BondPriceOracle` plus that same registration call. After every vault/market redeploy, grant KYC on that bond's Identity Registry to the new `RepoVault` and `SecondaryMarket` addresses in ATS Web.
 
 ## UI
 
@@ -62,4 +64,5 @@ No private keys in `.env`. Pool is ~20 testnet USDC, so the desk defaults collat
 cd contracts
 npm install
 npm run compile
+npm run deploy:testnet
 ```
