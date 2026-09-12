@@ -6,6 +6,7 @@ import { useHasAdminAccess } from "./lib/issuer";
 import { Desk } from "./screens/Desk";
 import { InvestorPortal } from "./screens/InvestorPortal";
 import { IssuerConsole } from "./screens/IssuerConsole";
+import { Landing } from "./screens/Landing";
 import { LenderDashboard } from "./screens/LenderDashboard";
 import { SecondaryMarket } from "./screens/SecondaryMarket";
 
@@ -25,18 +26,32 @@ export default function App() {
   const { disconnect } = useDisconnect();
   const { ready, hasAdmin } = useHasAdminAccess(address);
   const [screen, setScreen] = useState<Screen>("issuer");
+  const [entered, setEntered] = useState(false);
 
   const injected = connectors.find((connector) => connector.id === "injected") ?? connectors[0];
   const wrongNetwork = isConnected && chainId !== env.chainId;
   const showAdmin = !isConnected || !ready || hasAdmin;
   const view: Screen = screen === "issuer" && isConnected && ready && !hasAdmin ? "investor" : screen;
 
+  if (!entered) {
+    return (
+      <Landing
+        onEnter={() => {
+          setScreen("investor");
+          setEntered(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="page">
       <header className="top">
         <div>
-          <p className="eyebrow">Hedera testnet · 296</p>
-          <h1>ReHold</h1>
+          <button type="button" className="brand" onClick={() => setEntered(false)}>
+            <span className="eyebrow">Hedera testnet · 296</span>
+            <span className="brand-name">ReHold</span>
+          </button>
           <p className="sub">{SUBCOPY[view]}</p>
         </div>
         {isConnected && address ? (
