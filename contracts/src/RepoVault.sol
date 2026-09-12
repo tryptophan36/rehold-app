@@ -393,7 +393,8 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
      *      (Chainlink convention). The oracle price and bond token unit
      *      convention must share the same scale — adjust the 1e8 divisor if needed.
      *
-     *      The hold is created with `expirationTimestamp == 0` (never-expires).
+     *      The hold is created with `expirationTimestamp == type(uint256).max`
+     *      (ATS never-expires). A zero timestamp reverts `WrongExpirationTimestamp`.
      *      Term enforcement is handled by `termEnd` + `settleAtMaturity`, not
      *      hold expiry, to prevent borrowers reclaiming collateral early via
      *      `reclaimHoldByPartition`.
@@ -437,7 +438,7 @@ contract RepoVault is Ownable, ReentrancyGuard, HederaTokenService {
 
         IHoldTypes.Hold memory hold = IHoldTypes.Hold({
             amount: collateralAmount,
-            expirationTimestamp: 0, // never-expires — see @dev above
+            expirationTimestamp: type(uint256).max, // ATS never-expires — 0 reverts WrongExpirationTimestamp
             escrow: address(this),
             to: address(this), // fixed forever — vault executes into itself then transfers onward
             data: ""

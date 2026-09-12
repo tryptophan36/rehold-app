@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "keeper": "node scripts/keeper.mjs",
+    "keeper:once": "node scripts/keeper.mjs --once"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",

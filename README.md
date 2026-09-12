@@ -19,9 +19,9 @@ Do **not** copy the ATS monorepo here. Hold interfaces under `contracts/src/inte
 | Contract | Address | HashScan |
 |---|---|---|
 | BondPriceOracle | `0x39a337f7860989148825951FF0Ba1415ca98bA3D` | [view](https://hashscan.io/testnet/contract/0x39a337f7860989148825951FF0Ba1415ca98bA3D) |
-| RepoVault | `0xEcB7010568EeDACff4602Cc9840A765355bd2c66` | [view](https://hashscan.io/testnet/contract/0xEcB7010568EeDACff4602Cc9840A765355bd2c66) |
-| SecondaryMarket | `0x8e2Ee24A6b02E67a881060BBAae5bEBC4d61e7e4` | [view](https://hashscan.io/testnet/contract/0x8e2Ee24A6b02E67a881060BBAae5bEBC4d61e7e4) |
-| MarginEngine | `0xf1e2C19376730CCc82A5491edc950AC6a412499e` | [view](https://hashscan.io/testnet/contract/0xf1e2C19376730CCc82A5491edc950AC6a412499e) |
+| RepoVault | `0xFf9F2d996448DFe96968EEe8A329010346eF1054` | [view](https://hashscan.io/testnet/contract/0xFf9F2d996448DFe96968EEe8A329010346eF1054) |
+| SecondaryMarket | `0x2d9406764385fDfA4D97aA714Aeb993D8a37262F` | [view](https://hashscan.io/testnet/contract/0x2d9406764385fDfA4D97aA714Aeb993D8a37262F) |
+| MarginEngine | `0x955a5ffEe29a5E2755EFE1CD30B79f41B2c1E421` | [view](https://hashscan.io/testnet/contract/0x955a5ffEe29a5E2755EFE1CD30B79f41B2c1E421) |
 | Bond (ATS) | `0xc746a5530fb1e0dc818cabdce6ae88c1316d87bf` | [token 0.0.10483609](https://hashscan.io/testnet/token/0.0.10483609) |
 | USDC | `0x0000000000000000000000000000000000068CDA` | [0.0.429274](https://hashscan.io/testnet/token/0.0.429274) |
 
@@ -37,7 +37,7 @@ For each of the four contracts above:
    - **BondPriceOracle:** updater `0x67c03919338c6177Bb6F83752a65a1cdAA2b96A8`
    - **RepoVault:** USDC `0x0000000000000000000000000000000000068CDA` (oracles are registered after deploy via `setOracleForBond`)
    - **SecondaryMarket:** USDC `0x0000000000000000000000000000000000068CDA`
-   - **MarginEngine:** vault `0xEcB7010568EeDACff4602Cc9840A765355bd2c66`
+   - **MarginEngine:** vault `0xFf9F2d996448DFe96968EEe8A329010346eF1054`
 4. Source is `contracts/src/*.sol`. Flatten if the UI asks for a single file:
 
 ```bash

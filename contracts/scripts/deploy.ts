@@ -7,7 +7,11 @@ const BOND = "0xc746a5530fb1e0dc818cabdce6ae88c1316d87bf";
 const EXISTING_ORACLE = "0x39a337f7860989148825951FF0Ba1415ca98bA3D";
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  if (signers.length === 0) {
+    throw new Error("No deployer account. Set OPERATOR_PRIVATE_KEY in contracts/.env");
+  }
+  const [deployer] = signers;
   const deployerAddress = await deployer.getAddress();
   console.log("deployer", deployerAddress);
   console.log("balance", ethers.formatEther(await ethers.provider.getBalance(deployerAddress)), "HBAR");

@@ -4,7 +4,8 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-ethers";
 import "dotenv/config";
 
-const accounts = process.env.OPERATOR_PRIVATE_KEY ? [process.env.OPERATOR_PRIVATE_KEY] : [];
+const operatorKey = (process.env.OPERATOR_PRIVATE_KEY ?? "").trim();
+const accounts = operatorKey ? [operatorKey] : [];
 
 const config: HardhatUserConfig = {
   solidity: {
