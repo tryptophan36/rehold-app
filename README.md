@@ -36,6 +36,9 @@ This document is the technical reference for **the whole repository**: every pac
 
 ## 1. What this system is
 
+<img width="1257" height="347" alt="Screenshot 2026-09-12 at 9 09 28 PM" src="https://github.com/user-attachments/assets/05db0e71-cf8b-44c3-802c-7cc31045cb89" />
+
+
 A **repurchase agreement** (repo) here is: an investor pledges a tokenised treasury as collateral and receives USDC against a haircut. Title of the bond does **not** transfer into the vault. ATS Hold locks the pledged units under the investor’s identity. When they repay principal plus a fee, the hold is released. If they do not, or if NAV falls far enough, the vault can execute the hold, sell on the secondary market, and apply proceeds to the loan.
 
 The live testnet instrument is **HTN-2027-A** (HTS `0.0.10483609`), issued at [Hedera Asset Tokenization Studio](https://tokenization-studio.hedera.com). Circle testnet USDC (`0.0.429274`) is the cash token.
