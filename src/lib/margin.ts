@@ -10,7 +10,7 @@ export const BPS_DENOMINATOR = 10000n;
 export const PRICE_SCALE = 100_000_000n;
 
 /** Haircut used at origination so a new position opens near 125% (green). */
-export const ORIGINATION_HAIRCUT_BPS = 2000n;
+export const ORIGINATION_HAIRCUT_BPS = 200n;
 /** Matches RepoVault / MarginEngine: originate and evaluate revert if NAV is older. */
 export const STALE_PRICE_WINDOW_SECONDS = 600n;
 
