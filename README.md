@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/7efc4cb5-5cba-40c2-adfe-4f18604c3917
 
 #ReHold Technical Documentation
 
-ReHold (also called **TreasuryRepo** in the contracts) is a repo / lending layer that sits **next to** a Hedera Asset Tokenization Studio (ATS) bond. It does not fork ATS. The bond is issued, KYC’d, couponed, and redeemed in ATS. This repo adds a cash desk: lenders deposit USDC, investors pledge the bond in place via ATS Hold, and a margin engine can sell just enough collateral on a secondary book if the ratio breaks.
+ReHold (also called **TreasuryRepo** in the contracts) is a repo / lending layer that sits **next to** a Hedera Asset Tokenization Studio (ATS) bond. The bond is issued, KYC’d, couponed, and redeemed in ATS. This repo adds a cash desk: lenders deposit USDC, investors pledge the bond in place via ATS Hold, and a margin engine can sell just enough collateral on a secondary book if the ratio breaks.
 
 This document is the technical reference for **the whole repository**: every package, Solidity file, UI screen, helper, script, and config. Architecture and contract lifecycle sit in §§1–7. The application, keeper, setup, and file catalog sit in §§8–15.
 
