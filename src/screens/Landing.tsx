@@ -309,29 +309,29 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
       </header>
 
       <section className="land-inner land-hero">
-        <div className="land-hero-copy">
-          <p className="eyebrow land-in" style={{ animationDelay: "0ms" }}>
-            Hedera · Asset Tokenization Studio
-          </p>
-          <h1 className="land-in" style={{ animationDelay: "80ms" }}>
-            Programmable collateral, settled on-chain.
-          </h1>
-          <p className="land-lead land-in" style={{ animationDelay: "160ms" }}>
-            Repo-finance tokenised treasuries. The bond never moves to a vault — it goes on{" "}
-            <em>Hold</em>.
-          </p>
-          <div className="actions land-in" style={{ animationDelay: "240ms" }}>
-            <button type="button" onClick={onEnter}>
-              Open desk
-            </button>
-            <a className="link-btn" href="#circuit">
-              See the circuit
-            </a>
-          </div>
-        </div>
-        <HoldScene />
-      </section>
-
+  <div className="land-hero-copy">
+    <p className="eyebrow land-in" style={{ animationDelay: "0ms" }}>
+      Hedera · Asset Tokenization Studio
+    </p>
+    <h1 className="land-in" style={{ animationDelay: "80ms" }}>
+      Programmable collateral, settled on-chain.
+    </h1>
+    <p className="land-lead land-in" style={{ animationDelay: "160ms" }}>
+      Repo moves trillions a day against treasuries — and still clears the
+      collateral leg on paper. REHOLD prices, calls, and settles it as a
+      single on-chain state change instead.
+    </p>
+    <div className="actions land-in" style={{ animationDelay: "240ms" }}>
+      <button type="button" onClick={onEnter}>
+        Open desk
+      </button>
+      <a className="link-btn" href="#circuit">
+        See the circuit
+      </a>
+    </div>
+  </div>
+  <HoldScene />
+</section>
       <section className="land-band">
         <div className="land-inner land-legs" data-reveal>
           <article>
