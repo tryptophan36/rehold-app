@@ -281,14 +281,6 @@ export function Desk() {
     query: { enabled: Boolean(liveBond && address), refetchInterval: 5000 },
   });
 
-  const { data: usdcBal, refetch: refetchUsdc } = useReadContract({
-    address: env.usdc,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: Boolean(address) },
-  });
-
   const { data: usdcAllowance, refetch: refetchUsdcAllow } = useReadContract({
     address: env.usdc,
     abi: erc20Abi,
@@ -313,7 +305,6 @@ export function Desk() {
     void refetchFee();
     void refetchLiq();
     void refetchPrice();
-    void refetchUsdc();
     void refetchUsdcAllow();
     void refetchUsdcAssoc();
     void refetchBondMeta();
@@ -325,7 +316,6 @@ export function Desk() {
     refetchFee,
     refetchLiq,
     refetchPrice,
-    refetchUsdc,
     refetchUsdcAllow,
     refetchUsdcAssoc,
     refetchBondMeta,
@@ -501,11 +491,6 @@ export function Desk() {
 
       <section className="card">
         <h2>Post collateral</h2>
-        <p className="hint">
-          Opens a repo via <span className="mono">originateRepo</span>. 20% haircut so the book
-          starts near 125% — plenty of room for the price-drop demo. Available{" "}
-          {fmt(available, decimals)} {symbol}. Your USDC {fmt(usdcBal, CASH_DECIMALS)}.
-        </p>
         {oracleStale ? (
           <p className="banner">
             Bond NAV is older than 10 minutes
